@@ -14,26 +14,6 @@ REPORT_FREQ = 10 #REPORT EVERY X'th BATCH
 RECURSIVE=False
 # total entries for m / 31 = 24030736
 
-def run():
-    # load sequence
-    # assign all sequences to user objects
-    # add these sequences to EVABCD
-    # run EVABCD
-
-# INPUT FORMAT:
-# [ userID , sequenceElementValue ]
-
-    EVABCD_Classifier = Classifier()
-
-    sequence = [1, 'ls', datetime.datetime.now()]
-
-    userSequences = defaultdict(lambda : SequenceOfActions)
-    for item in sequence:
-        userSequences[item[0]].addAction(Action(item[1], item[2]))
-
-    for userID in userSequences.keys():
-        EVABCD_Classifier.evolveIteratively(userID, userSequences[userID])
-
 def process_row(r):
     user_id = int(r[0])
     # action = Action(''.join(r[1:]))

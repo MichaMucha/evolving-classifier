@@ -10,6 +10,7 @@ from cosineDistance import cosine_distance
 
 CONST_S = 1 / sqrt(2*pi)
 
+# in order to enable a picklable defaultdict(lambda: 1)
 def one():
     return int(1)
 
