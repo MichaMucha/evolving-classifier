@@ -3,6 +3,9 @@ import csv
 from collections import defaultdict
 from datetime import datetime
 
+import multiprocessing as mp
+from multiprocessing import Pool
+
 from EVABCD import Classifier, SequenceOfActions, Action
 
 
@@ -46,9 +49,10 @@ def run():
 
 
     print('FINISHED EVOLUTIONS')
-    print(EVABCD_Classifier)
+    # print(EVABCD_Classifier)
 
-    EVABCD_Classifier.classifyAll()
+    # EVABCD_Classifier.classifyAll()
+    EVABCD_Classifier.classifyAllMP()
     EVABCD_Classifier.writeReport('report_beh_seq.txt')
 
 

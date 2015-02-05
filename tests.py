@@ -238,7 +238,7 @@ class TestTrie(unittest.TestCase):
             
             self.classifier.classifyProfile(userID)
             self.classifier.users[userID].frequencyProfilePotential = self.classifier.calculateProfilePotentialIteratively(userID)
-            for proto in self.classifier.prototypes:
+            for proto in self.classifier.prototypes.values():
                 print('Prototype potential: %f (before recalculation)' % proto.frequencyProfilePotential)
             self.classifier.recalculatePrototypePotentials()
 
@@ -247,7 +247,7 @@ class TestTrie(unittest.TestCase):
             if userID == 5:
                 self.assertAlmostEqual(self.classifier.prototypes[0].frequencyProfilePotential, 0.593089)
 
-            for proto in self.classifier.prototypes:
+            for proto in self.classifier.prototypes.values():
                 print('Prototype potential: %f (after recalculation)' % proto.frequencyProfilePotential)
             print('Users: %d, Prototypes: %d' % (len(self.classifier.users), len(self.classifier.prototypes)))
 
@@ -260,10 +260,10 @@ class TestTrie(unittest.TestCase):
             self.classifier.classifyProfile(userID)
             P = self.classifier.calculateProfilePotentialIteratively(userID)
             self.classifier.users[userID].frequencyProfilePotential = P
-            for proto in self.classifier.prototypes:
+            for proto in self.classifier.prototypes.values():
                 print('\nPrototype potential: %f (before recalculation)' % proto.frequencyProfilePotential)
             self.classifier.recalculatePrototypePotentials()
-            for proto in self.classifier.prototypes:
+            for proto in self.classifier.prototypes.values():
                 print('Prototype potential: %f (after recalculation)' % proto.frequencyProfilePotential)
             for user in self.classifier.users.values():
                 print('Potential of user: %f' % user.frequencyProfilePotential)
@@ -285,10 +285,10 @@ class TestTrie(unittest.TestCase):
             self.classifier.classifyProfile(userID)
             P = self.classifier.calculateProfilePotentialIteratively(userID)
             self.classifier.users[userID].frequencyProfilePotential = P
-            for proto in self.classifier.prototypes:
+            for proto in self.classifier.prototypes.values():
                 print('\nPrototype potential: %f (before recalculation)' % proto.frequencyProfilePotential)
             self.classifier.recalculatePrototypePotentials()
-            for proto in self.classifier.prototypes:
+            for proto in self.classifier.prototypes.values():
                 print('Prototype potential: %f (after recalculation)' % proto.frequencyProfilePotential)
             for user in self.classifier.users.values():
                 print('Potential of user: %f' % user.frequencyProfilePotential)
@@ -300,7 +300,7 @@ class TestTrie(unittest.TestCase):
                 self.classifier.addPrototype(userID)
                 if l > len(self.classifier.prototypes) - 1 :
                     print('---- One of the old prototypes removed! ----')
-                    for proto in self.classifier.prototypes:
+                    for proto in self.classifier.prototypes.values():
                         print('Prototype potential: %f (after removals)' % proto.frequencyProfilePotential)
                     for user in self.classifier.users.values():
                         print(user.assignedPrototype)

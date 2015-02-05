@@ -12,7 +12,7 @@ SUBSEQUENCE_LENGTH = 3
 BATCH_SIZE = 10000
 REPORT_FREQ = 10 #REPORT EVERY X'th BATCH
 RECURSIVE=False
-# total entries for march / 31 = 24030736 - every so many rows, we have a day (approx)
+# total entries for m / 31 = 24030736
 
 def run():
     # load sequence
@@ -69,7 +69,7 @@ if __name__ == '__main__':
                         for uid, sequence in batch_of_sequences.items():
                             classifier.evolve(uid, sequence)
                             k+=1
-                            if k % 200 == 0:
+                            if k % 500 == 0:
                                 print(datetime.datetime.now(), 'Processed', '%.1f' % (k/1000),
                                       'thousand users from batch', batch)
 

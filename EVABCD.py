@@ -3,11 +3,15 @@ __author__ = 'michalmucha'
 from collections import defaultdict
 from math import sqrt, exp, pi
 from statistics import mean
+from multiprocessing import Pool
 
 from cosineDistance import cosine_distance
 
 
 CONST_S = 1 / sqrt(2*pi)
+
+def one():
+    return int(1)
 
 class Prototype:
 
@@ -40,7 +44,7 @@ class User: # User with an ID, his sequence, his profile that comes from the seq
         self.calculateRecursiveSequenceDescriptors()
         self.frequencyProfilePotential = 1
 
-        self.recursiveSigmas = defaultdict(lambda : int(1))
+        self.recursiveSigmas = defaultdict(one)
 
         self.recursiveIteration = 0
 
@@ -158,11 +162,15 @@ class SequenceOfActions:
         else:
             return [self.actions[i:(i+subseqLen)] for i in range(0, l-subseqLen+1)]
 
+# to enable pickle
+def instanceOfTrieNode():
+    return TrieNode()
+
 class Trie:
 
     def __init__(self, sequence, subsequenceLength = 3):
         self.subsequenceLength = subsequenceLength
-        self.nodes = defaultdict(lambda : TrieNode())
+        self.nodes = defaultdict(instanceOfTrieNode)
         self.buildTrie(sequence)
 
     def buildTrie(self, sequence):
@@ -218,7 +226,7 @@ class TrieNode:
 
     def __init__(self):
         self.timestamps = []
-        self.children = defaultdict(lambda : TrieNode())
+        self.children = defaultdict(instanceOfTrieNode)
 
     def print(self, inset):
         for name, node in self.children.items():
@@ -241,7 +249,7 @@ class Classifier:
     # 4. see if any old prototypes overlap with the newly added; remove if yes
 
     def __init__(self, recursive = True, subsequenceLength = 3):
-        self.prototypes = []
+        self.prototypes = {}
         self.prototypeIDcounter = 0
         self.evolutionCounter = 0
         self.users = {}
@@ -298,7 +306,7 @@ class Classifier:
         numberOfSamples = len(self.users)
         if numberOfSamples == 1: return
 
-        for prototype in self.prototypes:
+        for prototype in self.prototypes.values():
             sumOfDistancesToAllSamples = 0
             for id in self.users.keys():
                 sumOfDistancesToAllSamples += self.cosDistBetweenTwoSamples(prototype.frequencyProfile,
@@ -309,34 +317,41 @@ class Classifier:
         numberOfSamples = len(self.users)
         if numberOfSamples == 1: return
 
-        for prototype in self.prototypes:
+        for prototype in self.prototypes.values():
             P = self.users[prototype.originalUser].updateProfilePotentialRecursively(numberOfSamples, self.registryOfEncounteredSubsequences.keys())
             prototype.frequencyProfilePotential = P
 
     def cosDistBetweenTwoSamples(self, userProfile1, userProfile2):
         user1_vector = []
         user2_vector = []
-        for sequence in self.registryOfEncounteredSubsequences.keys():
-            user1_vector.append(userProfile1[sequence])
-            user2_vector.append(userProfile2[sequence])
+
+        allSequences = set(userProfile1.keys()) | set(userProfile2.keys())
+        for sequence in allSequences:
+            try:
+                user1_vector.append(userProfile1[sequence])
+            except:
+                user1_vector.append(0)
+            try:
+                user2_vector.append(userProfile2[sequence])
+            except:
+                user2_vector.append(0)
         distance = cosine_distance(user1_vector, user2_vector)
         return distance
 
 
     def addPrototype(self, userID):
-        self.prototypes.append(Prototype(self.users[userID], self.prototypeIDcounter))
+        self.prototypes[self.prototypeIDcounter] = Prototype(self.users[userID], self.prototypeIDcounter)
         self.prototypeIDcounter += 1
 
     def evaluateProfileForPrototype(self, potential):
-        for prototype in self.prototypes:
-            if prototype.frequencyProfilePotential < potential:
-                return True
-
-        return False
+        if sorted([p.frequencyProfilePotential for p in self.prototypes.values()])[0] < potential:
+            return True
+        else:
+            return False
 
     def calculateRecursiveSigmas(self, userID):
         k = len(self.users)
-        for prototype in self.prototypes:
+        for prototype in self.prototypes.values():
             oldValue = self.users[userID].recursiveSigmas[prototype.id]
             try:
                 cosdist = self.cosDistBetweenTwoSamples(self.users[userID].frequencyProfile, prototype.frequencyProfile)
@@ -365,11 +380,11 @@ class Classifier:
             if micro > exp(-1): return True
             else: return False
 
-        newPrototypeList = [x for x in self.prototypes if not determineForRemoval(x)]
+        newPrototypeDict = {x.id: x for x in self.prototypes.values() if not determineForRemoval(x)}
         # if len(newPrototypeList) < self.prototypes:
         #     print('Removing some prototypes.. Should we re-classify all?')
         #     markedForRemoval = list( set(self.prototypes) - set(newPrototypeList) )
-        self.prototypes[:] = newPrototypeList
+        self.prototypes = newPrototypeDict
 
     def classifyProfile(self, userID):
         if len(self.prototypes) == 0:
@@ -379,16 +394,17 @@ class Classifier:
             userProfileVector = self.users[userID].frequencyProfile
 
             distances = []
-            for prototype in self.prototypes:
+            for prototype in self.prototypes.values():
                 distance = self.cosDistBetweenTwoSamples(userProfileVector, prototype.frequencyProfile)
                 distances.append( (prototype, distance) )
 
             bestFit = min(distances,key= lambda t : t[1])
-            self.users[userID].assignedPrototype = bestFit[0]
+            self.users[userID].assignedPrototype = bestFit[0].id
             bestFit[0].numberOfUsersAssigned += 1
 
 
     def evolve(self, userID, sequenceOfActions):
+        # this starts the show - algorithm runs
         if self.recursiveMode:
             self.evolveRecursively(userID, sequenceOfActions)
         else:
@@ -400,9 +416,45 @@ class Classifier:
             prototype.numberOfUsersAssigned = 0
         for user in self.users.keys():
             self.classifyProfile(user)
+        # with mp.Pool(mp.cpu_count()-1) as p:
+        #     p.map(self.classifyProfile, self.users.keys())
+
+    def generateMPsequence(self):
+        prototypeProfiles = {p.id: p.frequencyProfile for p in self.prototypes.values()}
+        for uid, user in self.users.items():
+            yield (uid, user.frequencyProfile, prototypeProfiles)
+
+    def classifyAllMP(self):
+        if len(self.prototypes) == 0:
+            return
+        elif len(self.prototypes) == 1:
+            for p_id, prototype in self.prototypes.items():
+                prototype.numberOfUsersAssigned = len(self.users)
+                for user in self.users.values():
+                    user.assignedPrototype = p_id
+
+        else:
+            for prototype in self.prototypes.values():
+                prototype.numberOfUsersAssigned = 0
+            # prototypeProfiles = {p.id: p.frequencyProfile for p in self.prototypes.values()}
+
+            # userProfiles = [(uid, user.frequencyProfile, prototypeProfiles) for uid, user in self.users.items()]
+            userProfiles = self.generateMPsequence()
+
+            with Pool() as p:
+                result = p.starmap_async(classifyOneMP, userProfiles)
+                for user_id, prototype_id in result.get():
+                    self.users[user_id].assignedPrototype = prototype_id
+                    self.prototypes[prototype_id].numberOfUsersAssigned +=1
+                # x = p.starmap_async(Classifier.classifyOneMP, userProfiles, 100)
+            # del prototypeProfiles
+            del userProfiles
+
+    def classifyAllMPv2(self):
+        pass
+
 
     def evolveIteratively(self, userID, sequenceOfActions):
-        # this starts the show - algorithm runs
         self.addOrUpdateUser(userID, sequenceOfActions)
         P = self.calculateProfilePotentialIteratively(userID)
         self.users[userID].frequencyProfilePotential = P
@@ -461,10 +513,31 @@ class Classifier:
 
             s += '\nPrototypes:\n\n'+ 71*'-' +'\nPrototype ID | based on user ID | potential | Users in class | sequence\n' + 71*'-' + '\n'
             file.write(s)
-            for prototype in self.prototypes:
+            for prototype in self.prototypes.values():
                 s = ('%d | %d | %f | %d | %s' % (
                     prototype.id, prototype.originalUser, prototype.frequencyProfilePotential, prototype.numberOfUsersAssigned,
                     ';'.join(['%s : %f' % (k, v) for k, v in prototype.frequencyProfile.items() if v > 0])
                 )) + '\n'
                 file.write(s)
 
+def classifyOneMP(uid, userProfile, prototypeProfiles):
+    distances = []
+    for prototype_id, prototype_profile in prototypeProfiles.items():
+        user1_vector = []
+        user2_vector = []
+        allSequences = set(userProfile.keys()) | set(prototype_profile.keys())
+        for sequence in allSequences:
+            try:
+                user1_vector.append(userProfile[sequence])
+            except: user1_vector.append(0)
+            try:
+                user2_vector.append(prototype_profile[sequence])
+            except: user2_vector.append(0)
+        distance = cosine_distance(user1_vector, user2_vector)
+        distances.append( (prototype_id, distance) )
+
+    bestFit = min(distances, key=lambda t: t[1])
+
+    # userAssignedPrototypes[uid] = bestFit[0]
+    # prototypeUserCounts[bestFit[0]] += 1
+    return uid, bestFit[0]
